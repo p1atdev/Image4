@@ -15,6 +15,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-asn1.git", .upToNextMajor(from: "1.0.0")),
         .package(url: "https://github.com/p1atdev/LZSS.git", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.9.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -28,7 +29,10 @@ let package = Package(
         ),
         .testTarget(
             name: "Image4Tests",
-            dependencies: ["Image4"],
+            dependencies: [
+                "Image4",
+                .product(name: "AsyncHTTPClient", package: "async-http-client")
+            ],
             resources: [
                 .copy("Resources/bin")
             ]

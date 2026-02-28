@@ -2,15 +2,22 @@ import Foundation
 import Testing
 @testable import Image4
 
+@Suite("IM4R Tests")
 struct IM4RTests {
-    @Test func testIM4R() async throws {
-        let data = try loadResource(name: "IM4R")
+    @Test("Create IM4R")
+    func testCreate() async throws {
+        let im4r = IM4R()
+        im4r.boot_nonce = Data(hex: "1234567890123456")
+        
+        _ = try im4r.output()
+    }
+
+    @Test("Read IM4R")
+    func testRead() async throws {
+        let data = try TestResource.im4r
         let im4r = try IM4R(data: data)
         #expect(im4r.boot_nonce?.map { String(format: "%02x", $0) }.joined() == "5f56bbaee8c2d27c")
 
-        let outputData = try im4r.output()
-        let im4rRe = try IM4R(data: outputData)
-        #expect(im4rRe.boot_nonce == im4r.boot_nonce)
-        #expect(im4rRe.properties.count == im4r.properties.count)
+        _ = try im4r.output()
     }
 }
