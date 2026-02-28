@@ -14,6 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-asn1.git", .upToNextMajor(from: "1.0.0")),
+        .package(url: "https://github.com/p1atdev/LZSS.git", .upToNextMajor(from: "1.0.0")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -21,7 +22,8 @@ let package = Package(
         .target(
             name: "Image4",
             dependencies: [
-                .product(name: "SwiftASN1", package: "swift-asn1")
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+                .product(name: "LZSS", package: "LZSS"),
             ]
         ),
         .testTarget(

@@ -2,11 +2,13 @@ import Foundation
 import SwiftASN1
 import Compression
 import CommonCrypto
+import LZSS
 
 public class IM4P: DERSerializable {
     public var fourcc: String?
     public var description: String?
     public var payload: IM4PData?
+    public var properties: [ManifestProperty] = []
 
     public convenience init(data: Data) throws {
         let rootNode = try DER.parse(Array(data))
@@ -35,10 +37,15 @@ public class IM4P: DERSerializable {
 
             while let nextNode = scanner.next() {
                 if nextNode.identifier == .octetString {
+                    // Keybags
                     let kbagData = try ASN1OctetString(derEncoded: nextNode).bytes
                     try parseKeybags(Data(kbagData))
-                } else {
+                } else if nextNode.identifier == .sequence {
+                    // Size sequence
                     try parseSize(nextNode)
+                } else if nextNode.identifier.tagClass == .contextSpecific && nextNode.identifier.tagNumber == 0 {
+                    // PAYP properties
+                    try parsePayp(nextNode)
                 }
             }
         }
@@ -59,7 +66,6 @@ public class IM4P: DERSerializable {
     }
 
     private func parseSize(_ node: ASN1Node) throws {
-        guard node.identifier == .sequence else { return }
         try DER.sequence(node, identifier: .sequence) { scanner in
             guard let first = scanner.next(), (try? UInt64(derEncoded: first)) == 1,
                 let sizeNode = scanner.next(), let size = try? UInt64(derEncoded: sizeNode)
@@ -67,6 +73,57 @@ public class IM4P: DERSerializable {
                 return
             }
             self.payload?.size = size
+        }
+    }
+    
+    private func parsePayp(_ node: ASN1Node) throws {
+        guard case .constructed(let nodes) = node.content else { return }
+        var nodesScanner = nodes.makeIterator()
+        guard let innerSeq = nodesScanner.next() else { return }
+        
+        try DER.sequence(innerSeq, identifier: .sequence) { scanner in
+            guard let head = scanner.next(), (try? String(ASN1IA5String(derEncoded: head))) == "PAYP" else { return }
+            guard let setNode = scanner.next(), setNode.identifier == .set else { return }
+            guard case .constructed(let propNodes) = setNode.content else { return }
+            
+            for pNode in propNodes {
+                if let prop = try? parseProperty(pNode) {
+                    self.properties.append(prop)
+                }
+            }
+        }
+    }
+    
+    private func parseProperty(_ node: ASN1Node) throws -> ManifestProperty {
+        guard case .constructed(let nodes) = node.content else { throw Image4Error.invalidData }
+        var scanner = nodes.makeIterator()
+        guard let seqNode = scanner.next(), seqNode.identifier == .sequence else {
+            throw Image4Error.invalidData
+        }
+
+        return try DER.sequence(seqNode, identifier: .sequence) {
+            (scanner: inout ASN1NodeCollection.Iterator) in
+            guard let fourccNode = scanner.next(),
+                let fourcc = try? String(ASN1IA5String(derEncoded: fourccNode)),
+                let valueNode = scanner.next()
+            else {
+                throw Image4Error.invalidData
+            }
+
+            let value: Any
+            if valueNode.identifier == .integer {
+                value = try UInt64(derEncoded: valueNode)
+            } else if valueNode.identifier == .octetString {
+                value = Data(try ASN1OctetString(derEncoded: valueNode).bytes)
+            } else {
+                if case .primitive(let bytes) = valueNode.content {
+                    value = Data(bytes)
+                } else {
+                    value = Data(valueNode.encodedBytes)
+                }
+            }
+
+            return ManifestProperty(fourcc: fourcc, value: value)
         }
     }
 
@@ -94,6 +151,20 @@ public class IM4P: DERSerializable {
                     try coder.appendConstructedNode(identifier: .sequence) { coder in
                         try Int(1).serialize(into: &coder)
                         try Int(payload.size).serialize(into: &coder)
+                    }
+                }
+                
+                if !self.properties.isEmpty {
+                    let tag = ASN1Identifier(tagWithNumber: 0, tagClass: .contextSpecific)
+                    try coder.appendConstructedNode(identifier: tag) { coder in
+                        try coder.appendConstructedNode(identifier: .sequence) { coder in
+                            try ASN1IA5String("PAYP").serialize(into: &coder)
+                            try coder.appendConstructedNode(identifier: .set) { coder in
+                                for prop in self.properties {
+                                    try prop.serialize(into: &coder)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -125,6 +196,11 @@ public class IM4PData {
     public init(data: Data) {
         self.data = data
         detectCompression()
+        
+        // Handle complzss header if present
+        if compression == .lzss {
+            parseComplzssHeader()
+        }
     }
 
     private func detectCompression() {
@@ -136,6 +212,26 @@ public class IM4PData {
             self.compression = .lzfse
         } else {
             self.compression = .none
+        }
+    }
+    
+    private func parseComplzssHeader() {
+        // complzss header is 0x180 bytes
+        // 0x8: adler32 (4 bytes)
+        // 0xC: uncompressed size (4 bytes, big endian)
+        // 0x10: compressed size (4 bytes, big endian)
+        guard data.count >= 0x180 else { return }
+        
+        let uncompSize = data.subdata(in: 0xC..<0x10).withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+        let compSize = data.subdata(in: 0x10..<0x14).withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+        
+        self.size = UInt64(uncompSize)
+        
+        // If there's data after (0x180 + compSize), it's extra data (like KPP)
+        let totalLzssSize = 0x180 + Int(compSize)
+        if data.count > totalLzssSize {
+            self.extra = data.subdata(in: totalLzssSize..<data.count)
+            self.data = data.subdata(in: 0..<totalLzssSize)
         }
     }
 
@@ -154,7 +250,12 @@ public class IM4PData {
             self.data = Data(destinationBuffer)
             self.compression = .none
         case .lzss:
-            throw Image4Error.compressionError
+            guard size > 0 else { throw Image4Error.compressionError }
+            // Skip the 0x180 complzss header
+            let compressedData = data.subdata(in: 0x180..<data.count)
+            let decompressed = LZSS.decode(compressedData)
+            self.data = decompressed
+            self.compression = .none
         default:
             return
         }
@@ -211,6 +312,10 @@ public class IM4PData {
         self.data = decryptedData.prefix(numBytesDecrypted)
         self.keybags = []
         detectCompression()
+        
+        if compression == .lzss {
+            parseComplzssHeader()
+        }
     }
 }
 
