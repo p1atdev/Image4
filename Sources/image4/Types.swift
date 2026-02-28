@@ -17,11 +17,29 @@ public enum Compression: Int {
 }
 
 extension Data {
-    func reversedData() -> Data {
+    public func reversedData() -> Data {
         Data(Array(self.reversed()))
     }
     
-    func contains(_ other: Data) -> Bool {
+    public func contains(_ other: Data) -> Bool {
         return self.range(of: other) != nil
+    }
+
+    public init(hexString: String) throws {
+        var data = Data()
+        var hex = hexString
+        if hex.count % 2 != 0 {
+            hex = "0" + hex
+        }
+        
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let nextIndex = hex.index(index, offsetBy: 2)
+            if let byte = UInt8(hex[index..<nextIndex], radix: 16) {
+                data.append(byte)
+            }
+            index = nextIndex
+        }
+        self = data
     }
 }

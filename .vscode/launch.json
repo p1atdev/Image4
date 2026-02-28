@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Image4}",
+            "name": "Debug image4",
+            "target": "image4",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug image4"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Image4}",
+            "name": "Release image4",
+            "target": "image4",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release image4"
+        }
+    ]
+}

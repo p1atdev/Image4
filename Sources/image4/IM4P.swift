@@ -235,6 +235,62 @@ public class IM4PData {
         }
     }
 
+    private func createComplzssHeader(compSize: UInt32) -> Data {
+        var header = Data("complzss".utf8)
+        
+        // adler32
+        var adler: UInt32 = 1
+        var s1: UInt32 = 1
+        var s2: UInt32 = 0
+        for byte in data {
+            s1 = (s1 + UInt32(byte)) % 65521
+            s2 = (s2 + s1) % 65521
+        }
+        adler = (s2 << 16) | s1
+        
+        var adlerBE = adler.bigEndian
+        header.append(Data(bytes: &adlerBE, count: 4))
+        
+        var uncompSizeBE = UInt32(size).bigEndian
+        header.append(Data(bytes: &uncompSizeBE, count: 4))
+        
+        var compSizeBE = compSize.bigEndian
+        header.append(Data(bytes: &compSizeBE, count: 4))
+        
+        var unknown = UInt32(1).bigEndian
+        header.append(Data(bytes: &unknown, count: 4))
+        
+        // Padding to 0x180
+        header.append(Data(repeating: 0, count: 0x180 - header.count))
+        
+        return header
+    }
+
+    public func compress(to compression: Compression) throws {
+        switch compression {
+        case .lzfse:
+            let bufferSize = data.count + 128 // Some extra space
+            var destinationBuffer = [UInt8](repeating: 0, count: bufferSize)
+            let result = data.withUnsafeBytes { sourceBuffer in
+                compression_encode_buffer(
+                    &destinationBuffer, bufferSize,
+                    sourceBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self), data.count, nil,
+                    COMPRESSION_LZFSE)
+            }
+            guard result > 0 else { throw Image4Error.compressionError }
+            self.size = UInt64(data.count)
+            self.data = Data(destinationBuffer.prefix(result))
+            self.compression = .lzfse
+        case .lzss:
+            let compressed = LZSS.encode(data)
+            self.size = UInt64(data.count)
+            self.data = createComplzssHeader(compSize: UInt32(compressed.data.count)) + compressed.data
+            self.compression = .lzss
+        default:
+            return
+        }
+    }
+
     public func decompress() throws {
         switch compression {
         case .lzfse, .lzfseEncrypted:
