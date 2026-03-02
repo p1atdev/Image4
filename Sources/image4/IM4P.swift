@@ -4,6 +4,11 @@ import Foundation
 import LZSS
 import SwiftASN1
 
+// LZFSE_IBOOT is Apple's iBoot-compatible LZFSE variant (raw value 0x891).
+// It is not exposed as a named constant in the Compression framework but can
+// be used via the RawRepresentable initialiser on compression_algorithm.
+private let COMPRESSION_LZFSE_IBOOT = compression_algorithm(rawValue: 0x891)
+
 public class IM4P: DERSerializable {
     public var fourcc: String?
     public var description: String?
@@ -283,7 +288,7 @@ public class IM4PData {
                 compression_encode_buffer(
                     &destinationBuffer, bufferSize,
                     sourceBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self), data.count, nil,
-                    COMPRESSION_LZFSE)
+                    COMPRESSION_LZFSE_IBOOT)
             }
             guard result > 0 else { throw Image4Error.compressionError }
             self.size = UInt64(data.count)
@@ -310,7 +315,7 @@ public class IM4PData {
                 compression_decode_buffer(
                     &destinationBuffer, bufferSize,
                     sourceBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self), data.count, nil,
-                    COMPRESSION_LZFSE)
+                    COMPRESSION_LZFSE_IBOOT)
             }
             guard result > 0 else { throw Image4Error.compressionError }
             self.data = Data(destinationBuffer.prefix(result))
