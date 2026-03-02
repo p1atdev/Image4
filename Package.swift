@@ -14,12 +14,11 @@ let package = Package(
         .executable(
             name: "image4",
             targets: ["image4cli"]
-        )
+        ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-asn1.git", .upToNextMajor(from: "1.0.0")),
-        .package(url: "https://github.com/p1atdev/LZSS.git", .upToNextMajor(from: "1.0.0")),
-        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.9.0"),
+        .package(url: "https://github.com/apple/swift-asn1.git", from: "1.0.0"),
+        .package(url: "https://github.com/p1atdev/LZSS.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
     ],
     targets: [
@@ -42,8 +41,7 @@ let package = Package(
         .testTarget(
             name: "Image4Tests",
             dependencies: [
-                "Image4",
-                .product(name: "AsyncHTTPClient", package: "async-http-client")
+                "Image4"
             ],
             resources: [
                 .copy("Resources/bin")
