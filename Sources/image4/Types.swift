@@ -20,7 +20,7 @@ extension Data {
     public func reversedData() -> Data {
         Data(Array(self.reversed()))
     }
-    
+
     public func contains(_ other: Data) -> Bool {
         return self.range(of: other) != nil
     }
@@ -31,7 +31,7 @@ extension Data {
         if hex.count % 2 != 0 {
             hex = "0" + hex
         }
-        
+
         var index = hex.startIndex
         while index < hex.endIndex {
             let nextIndex = hex.index(index, offsetBy: 2)

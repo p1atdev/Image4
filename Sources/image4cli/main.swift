@@ -1,5 +1,5 @@
-import Foundation
 import ArgumentParser
+import Foundation
 import Image4
 
 @main
@@ -68,7 +68,9 @@ struct IM4MCommand: ParsableCommand {
                     }
 
                     if let dataVal = prop.value as? Data {
-                        print("  \(prop.fourcc) (hex): \(dataVal.map { String(format: "%02x", $0) }.joined())")
+                        print(
+                            "  \(prop.fourcc) (hex): \(dataVal.map { String(format: "%02x", $0) }.joined())"
+                        )
                     } else {
                         print("  \(prop.fourcc): \(prop.value)")
                     }
@@ -117,8 +119,11 @@ struct IM4MCommand: ParsableCommand {
             let im4m = try IM4M(data: im4mData)
 
             let manifestData = try Data(contentsOf: URL(fileURLWithPath: buildManifest))
-            guard let manifest = try PropertyListSerialization.propertyList(from: manifestData, options: [], format: nil) as? [String: Any],
-                  let buildIdentities = manifest["BuildIdentities"] as? [[String: Any]] else {
+            guard
+                let manifest = try PropertyListSerialization.propertyList(
+                    from: manifestData, options: [], format: nil) as? [String: Any],
+                let buildIdentities = manifest["BuildIdentities"] as? [[String: Any]]
+            else {
                 print("Failed to parse build manifest file: \(buildManifest)")
                 return
             }
@@ -128,9 +133,10 @@ struct IM4MCommand: ParsableCommand {
 
             for (index, identity) in buildIdentities.enumerated() {
                 guard let apBoardIDStr = identity["ApBoardID"] as? String,
-                      let apBoardID = UInt64(apBoardIDStr.dropFirst(2), radix: 16),
-                      let apChipIDStr = identity["ApChipID"] as? String,
-                      let apChipID = UInt64(apChipIDStr.dropFirst(2), radix: 16) else {
+                    let apBoardID = UInt64(apBoardIDStr.dropFirst(2), radix: 16),
+                    let apChipIDStr = identity["ApChipID"] as? String,
+                    let apChipID = UInt64(apChipIDStr.dropFirst(2), radix: 16)
+                else {
                     continue
                 }
 
@@ -142,7 +148,8 @@ struct IM4MCommand: ParsableCommand {
                 }
 
                 print("Selected build identity: \(index + 1)")
-                guard let componentManifest = identity["Manifest"] as? [String: [String: Any]] else {
+                guard let componentManifest = identity["Manifest"] as? [String: [String: Any]]
+                else {
                     continue
                 }
 
@@ -169,7 +176,9 @@ struct IM4MCommand: ParsableCommand {
                 }
 
                 if allMatch {
-                    print("\nImage4 manifest was successfully validated with the build manifest for the following restore:")
+                    print(
+                        "\nImage4 manifest was successfully validated with the build manifest for the following restore:"
+                    )
                     if let info = identity["Info"] as? [String: Any] {
                         print("Board config: \(info["DeviceClass"] ?? "")")
                         print("Build ID: \(info["BuildNumber"] ?? "")")
@@ -198,7 +207,10 @@ struct IM4MCommand: ParsableCommand {
 
         func run() throws {
             let data = try Data(contentsOf: URL(fileURLWithPath: input))
-            guard var plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+            guard
+                var plist = try PropertyListSerialization.propertyList(
+                    from: data, options: [], format: nil) as? [String: Any]
+            else {
                 print("Failed to read SHSH blob: \(input)")
                 return
             }
@@ -264,7 +276,7 @@ struct IM4PCommand: ParsableCommand {
             let im4p = IM4P()
             im4p.fourcc = fourcc
             im4p.description = description
-            
+
             let payload = IM4PData(data: inputData)
             im4p.payload = payload
 
@@ -311,9 +323,11 @@ struct IM4PCommand: ParsableCommand {
 
             if let ivStr = iv, let keyStr = key {
                 print("[NOTE] Image4 payload data is encrypted, decrypting...")
-                let ivData = try Data(hexString: ivStr.hasPrefix("0x") ? String(ivStr.dropFirst(2)) : ivStr)
-                let keyData = try Data(hexString: keyStr.hasPrefix("0x") ? String(keyStr.dropFirst(2)) : keyStr)
-                
+                let ivData = try Data(
+                    hexString: ivStr.hasPrefix("0x") ? String(ivStr.dropFirst(2)) : ivStr)
+                let keyData = try Data(
+                    hexString: keyStr.hasPrefix("0x") ? String(keyStr.dropFirst(2)) : keyStr)
+
                 let kbag = Keybag(iv: ivData, key: keyData)
                 try payload.decrypt(with: kbag)
             } else if payload.encrypted {
@@ -322,10 +336,14 @@ struct IM4PCommand: ParsableCommand {
 
             if payload.compression != .none {
                 if !noDecompress {
-                    print("[NOTE] Image4 payload data is \(payload.compression) compressed, decompressing...")
+                    print(
+                        "[NOTE] Image4 payload data is \(payload.compression) compressed, decompressing..."
+                    )
                     try payload.decompress()
                 } else {
-                    print("[NOTE] Image4 payload data is \(payload.compression) compressed, skipping decompression")
+                    print(
+                        "[NOTE] Image4 payload data is \(payload.compression) compressed, skipping decompression"
+                    )
                 }
             }
 
@@ -359,17 +377,24 @@ struct IM4PCommand: ParsableCommand {
             print("  Description: \(im4p.description ?? "")")
 
             guard let payload = im4p.payload else { return }
-            let sizeStr = verbose ? "\(payload.data.count)" : String(format: "%.2fKB", Double(payload.data.count) / 1000.0)
+            let sizeStr =
+                verbose
+                ? "\(payload.data.count)"
+                : String(format: "%.2fKB", Double(payload.data.count) / 1000.0)
             print("  Data size: \(sizeStr)")
 
             if payload.compression != .none {
                 print("  Data compression type: \(payload.compression)")
-                let uncompSizeStr = verbose ? "\(payload.size)" : String(format: "%.2fKB", Double(payload.size) / 1000.0)
+                let uncompSizeStr =
+                    verbose
+                    ? "\(payload.size)" : String(format: "%.2fKB", Double(payload.size) / 1000.0)
                 print("  Data size (uncompressed): \(uncompSizeStr)")
             }
 
             if let extra = payload.extra {
-                let extraSizeStr = verbose ? "\(extra.count)" : String(format: "%.2fKB", Double(extra.count) / 1000.0)
+                let extraSizeStr =
+                    verbose
+                    ? "\(extra.count)" : String(format: "%.2fKB", Double(extra.count) / 1000.0)
                 print("  Extra data size: \(extraSizeStr)")
             }
 
@@ -418,7 +443,8 @@ struct IM4RCommand: ParsableCommand {
     )
 
     struct Create: ParsableCommand {
-        @Option(name: .shortAndLong, help: "The boot nonce used to encrypt the Image4 restore info.")
+        @Option(
+            name: .shortAndLong, help: "The boot nonce used to encrypt the Image4 restore info.")
         var bootNonce: String
         @Option(name: .shortAndLong, help: "File to output Image4 restore info to.")
         var output: String
@@ -433,7 +459,8 @@ struct IM4RCommand: ParsableCommand {
 
             let im4r = IM4R()
             im4r.boot_nonce = nonceData
-            im4r.properties.append(ManifestProperty(fourcc: "BNCN", value: nonceData.reversedData()))
+            im4r.properties.append(
+                ManifestProperty(fourcc: "BNCN", value: nonceData.reversedData()))
 
             try im4r.output().write(to: URL(fileURLWithPath: output))
             print("Image4 restore info outputted to: \(output)")
@@ -536,7 +563,7 @@ struct IMG4Command: ParsableCommand {
                 if let extraPath = extra {
                     payloadDataObj.extra = try Data(contentsOf: URL(fileURLWithPath: extraPath))
                 }
-                
+
                 if lzss {
                     try payloadDataObj.compress(to: .lzss)
                 } else if lzfse {
@@ -553,10 +580,12 @@ struct IMG4Command: ParsableCommand {
                 let data = try Data(contentsOf: URL(fileURLWithPath: im4rPath))
                 img4.im4r = try IM4R(data: data)
             } else if let nonceStr = bootNonce {
-                let nonce = try Data(hexString: nonceStr.hasPrefix("0x") ? String(nonceStr.dropFirst(2)) : nonceStr)
+                let nonce = try Data(
+                    hexString: nonceStr.hasPrefix("0x") ? String(nonceStr.dropFirst(2)) : nonceStr)
                 let im4rObj = IM4R()
                 im4rObj.boot_nonce = nonce
-                im4rObj.properties.append(ManifestProperty(fourcc: "BNCN", value: nonce.reversedData()))
+                im4rObj.properties.append(
+                    ManifestProperty(fourcc: "BNCN", value: nonce.reversedData()))
                 img4.im4r = im4rObj
             }
 
@@ -646,7 +675,8 @@ struct IMG4Command: ParsableCommand {
                     if payload.compression != .none {
                         print("    Data compression type: \(payload.compression)")
                         try? payload.decompress()
-                        let uncompSizeStr = String(format: "%.2fKB", Double(payload.data.count) / 1000.0)
+                        let uncompSizeStr = String(
+                            format: "%.2fKB", Double(payload.data.count) / 1000.0)
                         print("    Data size (uncompressed): \(uncompSizeStr)")
                     }
 
@@ -660,8 +690,11 @@ struct IMG4Command: ParsableCommand {
                         print("    Keybags (\(payload.keybags.count)):")
                         for (index, kbag) in payload.keybags.enumerated() {
                             print("      Type: \(kbag.type)")
-                            print("      IV: \(kbag.iv.map { String(format: "%02x", $0) }.joined())")
-                            print("      Key: \(kbag.key.map { String(format: "%02x", $0) }.joined())")
+                            print(
+                                "      IV: \(kbag.iv.map { String(format: "%02x", $0) }.joined())")
+                            print(
+                                "      Key: \(kbag.key.map { String(format: "%02x", $0) }.joined())"
+                            )
                             if index != payload.keybags.count - 1 {
                                 print()
                             }
@@ -694,11 +727,14 @@ struct IMG4Command: ParsableCommand {
                 }
 
                 if let apnonce = im4m.apnonce {
-                    print("    ApNonce (hex): \(apnonce.map { String(format: "%02x", $0) }.joined())")
+                    print(
+                        "    ApNonce (hex): \(apnonce.map { String(format: "%02x", $0) }.joined())")
                 }
 
                 if let sepnonce = im4m.sepnonce {
-                    print("    SepNonce (hex): \(sepnonce.map { String(format: "%02x", $0) }.joined())")
+                    print(
+                        "    SepNonce (hex): \(sepnonce.map { String(format: "%02x", $0) }.joined())"
+                    )
                 }
 
                 if verbose {
@@ -708,7 +744,9 @@ struct IMG4Command: ParsableCommand {
                         }
 
                         if let dataVal = prop.value as? Data {
-                            print("    \(prop.fourcc) (hex): \(dataVal.map { String(format: "%02x", $0) }.joined())")
+                            print(
+                                "    \(prop.fourcc) (hex): \(dataVal.map { String(format: "%02x", $0) }.joined())"
+                            )
                         } else {
                             print("    \(prop.fourcc): \(prop.value)")
                         }
@@ -744,7 +782,9 @@ struct IMG4Command: ParsableCommand {
             if let im4r = img4.im4r {
                 print("\n  Image4 restore info:")
                 if let nonce = im4r.boot_nonce {
-                    print("    Boot nonce (hex): 0x\(nonce.map { String(format: "%02x", $0) }.joined())")
+                    print(
+                        "    Boot nonce (hex): 0x\(nonce.map { String(format: "%02x", $0) }.joined())"
+                    )
                 }
 
                 let extraProps = im4r.properties.filter { $0.fourcc != "BNCN" }

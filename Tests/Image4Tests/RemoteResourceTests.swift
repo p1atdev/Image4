@@ -1,10 +1,11 @@
-import Testing
 import Foundation
+import Testing
+
 @testable import Image4
 
 @Suite("Remote Resource Tests")
 struct RemoteResourceTests {
-    
+
     @Test("Fetch Decrypted LZSS IM4P")
     func testFetchDecLZSS() async throws {
         let data = try await TestResource.decLZSSIM4P
@@ -16,7 +17,7 @@ struct RemoteResourceTests {
         let data = try await TestResource.encLZSSIM4P
         #expect(!data.isEmpty)
     }
-    
+
     @Test("Fetch Decrypted LZFSE IM4P")
     func testFetchDecLZFSE() async throws {
         let data = try await TestResource.decLZFSEIM4P
