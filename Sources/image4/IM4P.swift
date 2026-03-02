@@ -277,7 +277,7 @@ public class IM4PData {
     public func compress(to compression: Compression) throws {
         switch compression {
         case .lzfse:
-            let bufferSize = data.count + 128  // Some extra space
+            let bufferSize = data.count + (data.count >> 3) + 256
             var destinationBuffer = [UInt8](repeating: 0, count: bufferSize)
             let result = data.withUnsafeBytes { sourceBuffer in
                 compression_encode_buffer(
@@ -304,15 +304,16 @@ public class IM4PData {
         switch compression {
         case .lzfse, .lzfseEncrypted:
             guard size > 0 else { throw Image4Error.compressionError }
-            var destinationBuffer = [UInt8](repeating: 0, count: Int(size))
+            let bufferSize = Int(size) + (Int(size) >> 3) + 256
+            var destinationBuffer = [UInt8](repeating: 0, count: bufferSize)
             let result = data.withUnsafeBytes { sourceBuffer in
                 compression_decode_buffer(
-                    &destinationBuffer, Int(size),
+                    &destinationBuffer, bufferSize,
                     sourceBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self), data.count, nil,
                     COMPRESSION_LZFSE)
             }
-            guard result == Int(size) else { throw Image4Error.compressionError }
-            self.data = Data(destinationBuffer)
+            guard result > 0 else { throw Image4Error.compressionError }
+            self.data = Data(destinationBuffer.prefix(result))
             self.compression = .none
         case .lzss:
             guard size > 0 else { throw Image4Error.compressionError }
